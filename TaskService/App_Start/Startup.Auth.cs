@@ -17,6 +17,13 @@ namespace TaskService
         public static string SignUpSignInPolicy = ConfigurationManager.AppSettings["ida:SignUpSignInPolicyId"];
         public static string DefaultPolicy = SignUpSignInPolicy;
 
+        public static string AadInstanceAutoTest = ConfigurationManager.AppSettings["ida:AadInstanceAutoTest"];
+        public static string TenantAutoTest = ConfigurationManager.AppSettings["ida:TenantAutoTest"];
+        public static string ClientIdAutoTest = ConfigurationManager.AppSettings["ida:ClientIdAutoTest"];
+        public static string SignUpSignInPolicyAutoTest = ConfigurationManager.AppSettings["ida:SignUpSignInPolicyIdAutoTest"];
+
+        public const string ClaimName = "emails";
+
         /*
          * Configure the authorization OWIN middleware 
          */
@@ -34,6 +41,24 @@ namespace TaskService
                 // This SecurityTokenProvider fetches the Azure AD B2C metadata & signing keys from the OpenIDConnect metadata endpoint
                 AccessTokenFormat = new JwtFormat(tvps, new OpenIdConnectCachingSecurityTokenProvider(String.Format(AadInstance, Tenant, DefaultPolicy)))
             });
+
+            #region Extends MS template. Validates Password grant tokens!
+            if (!string.IsNullOrWhiteSpace(SignUpSignInPolicyAutoTest))
+            {
+                TokenValidationParameters tvpsAutoTest = new TokenValidationParameters
+                {
+                    ValidAudience = ClientIdAutoTest,
+                    AuthenticationType = SignUpSignInPolicyAutoTest
+                };
+
+                app.UseOAuthBearerAuthentication(new OAuthBearerAuthenticationOptions
+                {
+                    AccessTokenFormat = new JwtFormat(
+                        tvpsAutoTest,
+                        new OpenIdConnectCachingSecurityTokenProvider(string.Format(AadInstanceAutoTest, TenantAutoTest, SignUpSignInPolicyAutoTest)))
+                });
+            }
+            #endregion
         }
     }
 }
