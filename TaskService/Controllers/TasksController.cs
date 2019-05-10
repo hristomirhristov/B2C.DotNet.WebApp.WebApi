@@ -4,7 +4,9 @@ using System.Configuration;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Claims;
+using System.Threading.Tasks;
 using System.Web.Http;
 
 namespace TaskService.Controllers
@@ -25,12 +27,45 @@ namespace TaskService.Controllers
         public static string ReadPermission = ConfigurationManager.AppSettings["api:ReadScope"];
         public static string WritePermission = ConfigurationManager.AppSettings["api:WriteScope"];
 
+        // Downstream API calls
+        private static string downstreamApiBaseAddress = ConfigurationManager.AppSettings["api:DownstreamApiBaseAddress"];
+        private static HttpClient httpClient = new HttpClient();
+
         /*
          * GET all tasks for user
          */
-        public IEnumerable<Models.Task> Get()
+        public async Task<IEnumerable<Models.Task>> Get()
         {
             HasRequiredScopes(ReadPermission);
+
+            #region CallDownstreamApi
+
+            var re = Request;
+            var authorizationHeader = re.Headers.Authorization;
+            var accessToken = authorizationHeader.ToString().Split(' ')[1];
+
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            HttpResponseMessage response = null;
+            try
+            {
+                response = await httpClient.GetAsync(downstreamApiBaseAddress + "coreapi/values");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            if (response.IsSuccessStatusCode)
+            {
+                string s = await response.Content.ReadAsStringAsync();
+                Console.WriteLine(s);
+            }
+            else
+            {
+                Console.WriteLine("ERROR :" + response.StatusCode);
+            }
+
+            #endregion
+
             string owner = ClaimsPrincipal.Current.FindFirst(objectIdElement).Value;
             IEnumerable<Models.Task> userTasks = db.Where(t => t.Owner == owner);
             return userTasks;
